@@ -74,7 +74,7 @@ racas2 %>%
 
 ```{r}
 racas_todas = prefs %>%
-  group_by(sigla_uf, nome_municipio, codigo_ibge, descricao_cor_raca) %>%
+  group_by(sigla_uf, nome_municipio, codigo_ibge, capital, descricao_cor_raca) %>%
   summarise(
     n = n()
   ) %>% 
@@ -82,14 +82,14 @@ racas_todas = prefs %>%
   ungroup()
 
 racas_wide = racas_todas %>% pivot_wider(
-  id_cols = c(codigo_ibge, candidaturas, sigla_uf), 
+  id_cols = c(codigo_ibge, candidaturas, capital, sigla_uf), 
   names_from = descricao_cor_raca, 
   values_from = n, 
   values_fill = 0
 )
 
 racas_prevalentes = racas_todas %>% 
-  group_by(sigla_uf, nome_municipio, codigo_ibge) %>% 
+  group_by(sigla_uf, nome_municipio, capital, codigo_ibge) %>% 
   top_n(1, wt = n) %>% 
   group_by(sigla_uf, nome_municipio, codigo_ibge) %>% 
   summarise(mais_comum = if_else(n() == 1,  first(descricao_cor_raca), "VÁRIAS"), 
