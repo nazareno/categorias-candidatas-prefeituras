@@ -1,0 +1,168 @@
+---
+title: "Contagens nas candidaturas a prefeituras 2020"
+output:
+    html_document:
+    df_print: paged
+theme: sandstone
+---
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(here)
+library(hrbrthemes)
+theme_set(theme_ipsum_rc())
+
+library(electionsBR)
+```
+
+```{r read}
+# dado = candidate_local(2020)
+# write_csv(dado, "tmp.csv")
+```
+
+
+```{r}
+prefs_bruto = read_csv("tmp.csv",
+                       col_types = cols(.default = col_character(), 
+                                        SIGLA_UE = col_double())) %>% 
+  filter(DESCRICAO_CARGO == "PREFEITO") 
+
+codigos = read_csv(here::here("data/raw/codigos.csv"), col_types = "dcccc")
+
+prefs = prefs_bruto %>% 
+  select(SIGLA_UF, SIGLA_UE, DESCRICAO_COR_RACA, EMAIL_CANDIDATO, DESCRICAO_SEXO) %>% 
+  janitor::clean_names() %>% 
+  left_join(codigos, by = c("sigla_ue" = "codigo_tse", "sigla_uf" = "uf")) 
+
+```
+
+
+```{r}
+prefs_bruto %>% 
+  distinct(NOME_COLIGACAO, COMPOSICAO_LEGENDA, DESCRICAO_UE, SIGLA_UF) %>% 
+  mutate(NOME_COLIGACAO = stringr::str_to_lower(NOME_COLIGACAO)) %>% 
+  filter(NOME_COLIGACAO != "partido isolado") %>%
+  distinct(NOME_COLIGACAO, COMPOSICAO_LEGENDA) %>% 
+  count(NOME_COLIGACAO, sort = T) %>% 
+  filter(n > 1)
+
+prefs_bruto %>% 
+  distinct(NOME_COLIGACAO, DESCRICAO_UE, SIGLA_UF) %>% 
+  mutate(NOME_COLIGACAO = stringr::str_to_lower(NOME_COLIGACAO)) %>% 
+  filter(NOME_COLIGACAO != "partido isolado") %>% 
+  group_by(NOME_COLIGACAO) %>% 
+  mutate(n = n()) %>% 
+  filter(n > 1) %>% 
+  arrange(-n)
+```
+
+## Raças
+
+```{r}
+racas2 = prefs %>%
+  group_by(sigla_uf, nome_municipio, codigo_ibge) %>%
+  summarise(
+    candidaturas = n(),
+    nao_brancos = sum(descricao_cor_raca != "BRANCA") / candidaturas, 
+    brancos = 1 - nao_brancos
+  ) %>% 
+  janitor::clean_names()
+
+racas2 %>% 
+  write_csv("candidaturas-2020-branco-nb.csv")
+```
+
+```{r}
+racas_todas = prefs %>%
+  group_by(sigla_uf, nome_municipio, codigo_ibge, descricao_cor_raca) %>%
+  summarise(
+    n = n()
+  ) %>% 
+  mutate(candidaturas = sum(n)) %>% 
+  ungroup()
+
+racas_wide = racas_todas %>% pivot_wider(
+  id_cols = c(codigo_ibge, candidaturas, sigla_uf), 
+  names_from = descricao_cor_raca, 
+  values_from = n, 
+  values_fill = 0
+)
+
+racas_prevalentes = racas_todas %>% 
+  group_by(sigla_uf, nome_municipio, codigo_ibge) %>% 
+  top_n(1, wt = n) %>% 
+  group_by(sigla_uf, nome_municipio, codigo_ibge) %>% 
+  summarise(mais_comum = if_else(n() == 1,  first(descricao_cor_raca), "VÁRIAS"), 
+            candidaturas = max(candidaturas), 
+            n_mais_comum = max(n))
+
+racas_todas %>% 
+  write_csv("candidaturas-2020-racas-long.csv")
+
+racas_wide %>% 
+  write_csv("candidaturas-2020-racas-todas.csv")
+
+racas_prevalentes %>% 
+  write_csv("candidaturas-2020-raca-maiscomum.csv")
+```
+
+
+## Gênero
+
+```{r}
+generos_long = prefs %>%
+  group_by(sigla_uf, nome_municipio, codigo_ibge, descricao_sexo, capital) %>%
+  summarise(
+    n = n()
+  ) %>% 
+  mutate(candidaturas = sum(n)) %>% 
+  ungroup()
+
+generos_wide = generos_long %>% 
+  pivot_wider(
+  id_cols = c(codigo_ibge, candidaturas, nome_municipio, sigla_uf, capital), 
+  names_from = descricao_sexo, 
+  values_from = n, 
+  values_fill = 0
+) %>% janitor::clean_names() %>% 
+  mutate(prop_feminino = feminino / candidaturas)
+
+generos_long %>% 
+  write_csv("candidaturas-2020-genero_long.csv")
+
+generos_wide %>% 
+  write_csv("candidaturas-2020-genero_wide.csv")
+
+```
+
+
+### Emails
+
+```{r}
+emails = prefs %>% 
+  mutate(provedor = str_extract(email_candidato, "(?<=@)[^.]+(?=\\.)")) %>% 
+  count(provedor, sort = T)
+```
+
+
+```{r}
+prefs %>% 
+  mutate(provedor = str_extract(email_candidato, "(?<=@)[^.]+(?=\\.)")) %>% 
+  filter(!is.na(provedor)) %>% 
+  count(sigla_uf, provedor == "BOL") %>% 
+  ggplot(aes(x = reorder(sigla_uf, n), y = n, fill = `provedor == "BOL"`)) + 
+  geom_col() + 
+  scale_fill_manual(values = c("gray", "coral"))
+  coord_flip()
+  
+prefs %>% 
+  mutate(provedor = str_extract(email_candidato, "(?<=@)[^.]+(?=\\.)")) %>% 
+  filter(!is.na(provedor)) %>% 
+  count(sigla_uf, provedor == "BOL") %>% 
+  filter(`provedor == "BOL"`) %>% 
+  ggplot(aes(x = reorder(sigla_uf, n), y = n, fill = `provedor == "BOL"`)) + 
+  geom_col() + 
+  scale_fill_manual(values = c("coral")) + 
+  coord_flip()
+```
+
