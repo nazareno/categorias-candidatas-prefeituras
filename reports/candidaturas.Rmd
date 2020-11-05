@@ -97,13 +97,13 @@ racas_prevalentes = racas_todas %>%
             n_mais_comum = max(n))
 
 racas_todas %>% 
-  write_csv("candidaturas-2020-racas-long.csv")
+  write_csv(here::here("data/ready/candidaturas-2020-racas-long.csv"))
 
 racas_wide %>% 
-  write_csv("candidaturas-2020-racas-todas.csv")
+  write_csv(here::here("data/ready/candidaturas-2020-racas-todas.csv"))
 
 racas_prevalentes %>% 
-  write_csv("candidaturas-2020-raca-maiscomum.csv")
+  write_csv(here::here("data/ready/candidaturas-2020-raca-maiscomum.csv"))
 ```
 
 
@@ -111,7 +111,7 @@ racas_prevalentes %>%
 
 ```{r}
 generos_long = prefs %>%
-  group_by(sigla_uf, nome_municipio, codigo_ibge, descricao_sexo, capital) %>%
+  group_by(sigla_uf, nome_municipio, codigo_ibge,  capital, descricao_sexo) %>%
   summarise(
     n = n()
   ) %>% 
@@ -120,7 +120,7 @@ generos_long = prefs %>%
 
 generos_wide = generos_long %>% 
   pivot_wider(
-  id_cols = c(codigo_ibge, candidaturas, nome_municipio, sigla_uf, capital), 
+  id_cols = c(codigo_ibge, candidaturas, nome_municipio, capital, sigla_uf), 
   names_from = descricao_sexo, 
   values_from = n, 
   values_fill = 0
@@ -128,10 +128,10 @@ generos_wide = generos_long %>%
   mutate(prop_feminino = feminino / candidaturas)
 
 generos_long %>% 
-  write_csv("candidaturas-2020-genero_long.csv")
+  write_csv(here::here("data/ready/candidaturas-2020-genero_long.csv"))
 
 generos_wide %>% 
-  write_csv("candidaturas-2020-genero_wide.csv")
+  write_csv(here::here("data/ready/candidaturas-2020-genero_wide.csv"))
 
 ```
 
